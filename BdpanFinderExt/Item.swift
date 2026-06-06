@@ -153,8 +153,7 @@ final class BdpanProviderItem: NSObject, NSFileProviderItem {
                     .allowsContentEnumerating,
                 ]
             }
-            // Files: reading and deletion; writes handled via createItem/modifyItem.
-            return [.allowsReading, .allowsDeleting]
+            return [.allowsReading, .allowsWriting, .allowsRenaming, .allowsReparenting, .allowsDeleting]
         }
     }
 
