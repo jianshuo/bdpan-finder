@@ -141,18 +141,16 @@ final class BdpanProviderItem: NSObject, NSFileProviderItem {
             return [.allowsReading, .allowsAddingSubItems, .allowsContentEnumerating]
         case .file(let info):
             if info.isdir {
-                // Folders expose the full set of capabilities.
+                // Omit .allowsTrashing: Baidu Pan has no trash container, and
+                // returning it causes macOS to call modifyItem(parentItemIdentifier:
+                // .trashContainer) instead of deleteItem — which fails with error -36.
                 return [
                     .allowsReading,
-                    .allowsWriting,
                     .allowsRenaming,
                     .allowsReparenting,
                     .allowsDeleting,
                     .allowsAddingSubItems,
                     .allowsContentEnumerating,
-                    .allowsTrashing,
-                    .allowsEvicting,
-                    .allowsExcludingFromSync,
                 ]
             }
             // Files: reading and deletion; writes handled via createItem/modifyItem.

@@ -83,11 +83,11 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             let remotePath = itemIdentifier.rawValue
             let basename = (remotePath as NSString).lastPathComponent
 
-            // bdpan downloads into a directory and places the file as <dir>/<basename>.
-            // Create a unique temp directory; the system takes ownership of the
-            // resulting file after we pass it to completionHandler — do not delete it.
+            // bdpan download requires the full destination file path (not a directory).
+            // Create a unique temp directory, then pass dir/basename as the destination.
             let tempDirURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            let fileURL = tempDirURL.appendingPathComponent(basename)
 
             do {
                 try FileManager.default.createDirectory(
@@ -95,8 +95,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                     withIntermediateDirectories: true,
                     attributes: nil
                 )
-                try client.downloadFile(from: remotePath, to: tempDirURL)
-                let fileURL = tempDirURL.appendingPathComponent(basename)
+                try client.downloadFile(from: remotePath, to: fileURL)
 
                 // Re-fetch metadata to hand back an updated item (best-effort).
                 let parentPath = (remotePath as NSString).deletingLastPathComponent
@@ -279,15 +278,20 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
     ) -> Progress {
         let progress = Progress.discreteProgress(totalUnitCount: 1)
 
+        let path = itemIdentifier.rawValue
         DispatchQueue.global(qos: .userInitiated).async { [client] in
             defer { progress.completedUnitCount = 1 }
+            NSLog("BdpanFinderExt: deleteItem \(path)")
             do {
-                try client.deleteItem(at: itemIdentifier.rawValue)
+                try client.deleteItem(at: path)
+                NSLog("BdpanFinderExt: deleteItem success \(path)")
                 completionHandler(nil)
             } catch BdpanError.pathNotFound {
                 // Item already gone on the server — treat as success.
+                NSLog("BdpanFinderExt: deleteItem pathNotFound (treated as success) \(path)")
                 completionHandler(nil)
             } catch {
+                NSLog("BdpanFinderExt: deleteItem error \(path): \(error)")
                 completionHandler(FileProviderExtension.mapError(error))
             }
         }

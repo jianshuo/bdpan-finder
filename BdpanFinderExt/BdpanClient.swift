@@ -78,19 +78,19 @@ final class BdpanClient {
         }
     }
 
-    /// Download a single remote file into a local directory.
+    /// Download a single remote file to a local file path.
     ///
-    /// Runs: `bdpan download <remotePath> <localURL.path>`
+    /// Runs: `bdpan download <remotePath> <localFileURL.path>`
     ///
-    /// bdpan places the downloaded file inside `localURL` using the remote
-    /// file's basename, so the result appears at `localURL/<basename>`.
+    /// `localFileURL` must be the **full destination file path** (not a directory).
+    /// The parent directory must exist before calling.
     ///
     /// - Parameters:
     ///   - remotePath: Full absolute remote path, e.g. `/apps/bdpan/我的/video.mp4`.
-    ///   - localURL: Destination **directory** URL. Must exist before calling.
+    ///   - localFileURL: Destination file URL, e.g. `/tmp/uuid/video.mp4`.
     /// - Throws: `BdpanError` on CLI failure.
-    func downloadFile(from remotePath: String, to localURL: URL) throws {
-        _ = try runBdpan(["download", remotePath, localURL.path])
+    func downloadFile(from remotePath: String, to localFileURL: URL) throws {
+        _ = try runBdpan(["download", remotePath, localFileURL.path])
     }
 
     /// Upload a local file to Baidu Pan.
