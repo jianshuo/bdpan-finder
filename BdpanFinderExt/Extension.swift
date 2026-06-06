@@ -186,9 +186,6 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
 
     // MARK: - Modify Item (rename / move / re-upload)
 
-    // bdpan CLI has no server-side move command, so rename/move is implemented as
-    // download-then-upload-then-delete. Content-only changes re-upload in place.
-
     func modifyItem(
         _ item: NSFileProviderItem,
         baseVersion version: NSFileProviderItemVersion,
@@ -209,49 +206,43 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             defer { progress.completedUnitCount = 1 }
 
             let oldPath = item.itemIdentifier.rawValue
+            let oldBasename = (oldPath as NSString).lastPathComponent
+            let oldParent  = (oldPath as NSString).deletingLastPathComponent
 
             do {
-                // Re-upload content if the file body changed.
+                // 1. Re-upload file content if body changed.
                 if changedFields.contains(.contents), let newContents = newContents {
                     try client.uploadFile(from: newContents, to: oldPath)
                 }
 
-                // Rename or reparent: download old → upload to new path → delete old.
-                if changedFields.contains(.filename) || changedFields.contains(.parentItemIdentifier) {
-                    let newParent: String
-                    if item.parentItemIdentifier == .rootContainer {
-                        newParent = "/apps/bdpan"
-                    } else {
-                        newParent = item.parentItemIdentifier.rawValue
-                    }
-                    let newPath = newParent + "/" + item.filename
-                    let basename = (oldPath as NSString).lastPathComponent
+                var currentPath = oldPath
 
-                    let tempDirURL = FileManager.default.temporaryDirectory
-                        .appendingPathComponent(UUID().uuidString, isDirectory: true)
-                    try FileManager.default.createDirectory(
-                        at: tempDirURL,
-                        withIntermediateDirectories: true,
-                        attributes: nil
-                    )
-                    try client.downloadFile(from: oldPath, to: tempDirURL)
-                    let tempFileURL = tempDirURL.appendingPathComponent(basename)
-                    try client.uploadFile(from: tempFileURL, to: newPath)
+                // 2. Move to new parent (server-side mv).
+                let newParent: String
+                if item.parentItemIdentifier == .rootContainer {
+                    newParent = "/apps/bdpan"
+                } else if item.parentItemIdentifier == .trashContainer {
+                    // Trash not supported — treat as immediate delete.
                     try client.deleteItem(at: oldPath)
-                    try? FileManager.default.removeItem(at: tempDirURL)
-                }
-
-                // Determine the post-modification path to re-fetch fresh metadata.
-                let currentPath: String
-                if changedFields.contains(.filename) || changedFields.contains(.parentItemIdentifier) {
-                    let newParent = item.parentItemIdentifier == .rootContainer
-                        ? "/apps/bdpan"
-                        : item.parentItemIdentifier.rawValue
-                    currentPath = newParent + "/" + item.filename
+                    completionHandler(nil, [], false, NSFileProviderError(.noSuchItem))
+                    return
                 } else {
-                    currentPath = oldPath
+                    newParent = item.parentItemIdentifier.rawValue
                 }
 
+                if changedFields.contains(.parentItemIdentifier) && newParent != oldParent {
+                    try client.moveItem(from: currentPath, toDirectory: newParent)
+                    currentPath = newParent + "/" + oldBasename
+                }
+
+                // 3. Rename in-place (server-side rename).
+                let newBasename = item.filename
+                if changedFields.contains(.filename) && newBasename != oldBasename {
+                    try client.renameItem(at: currentPath, to: newBasename)
+                    currentPath = (currentPath as NSString).deletingLastPathComponent + "/" + newBasename
+                }
+
+                // 4. Re-fetch fresh metadata from server.
                 let parentPath = (currentPath as NSString).deletingLastPathComponent
                 let entries = try client.listFiles(at: parentPath)
                 if let entry = entries.first(where: { $0.path == currentPath }) {

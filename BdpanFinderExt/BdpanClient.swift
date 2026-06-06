@@ -109,27 +109,38 @@ final class BdpanClient {
     }
 
     /// Create a remote directory, including all intermediate components.
-    ///
-    /// Runs: `bdpan mkdir <remotePath>`
-    ///
-    /// bdpan supports multi-level creation in a single call, so calling
-    /// `createDirectory(at: "a/b/c")` is equivalent to `mkdir -p a/b/c`.
-    ///
-    /// - Parameter remotePath: Path relative to `/apps/bdpan/`, e.g. `backup/2026/06`.
-    /// - Throws: `BdpanError` on CLI failure.
     func createDirectory(at remotePath: String) throws {
         _ = try runBdpan(["mkdir", remotePath])
+    }
+
+    /// Rename a file or directory in-place (same parent directory).
+    ///
+    /// Runs: `bdpan rename <remotePath> <newName>`
+    ///
+    /// `newName` is the bare leaf name only — no path separators.
+    func renameItem(at remotePath: String, to newName: String) throws {
+        _ = try runBdpan(["rename", remotePath, newName])
+    }
+
+    /// Move a file or directory to a different parent directory.
+    ///
+    /// Runs: `bdpan mv <remotePath> <destDir>`
+    ///
+    /// `destDir` is the destination **directory** path; the item keeps its basename.
+    func moveItem(from remotePath: String, toDirectory destDir: String) throws {
+        _ = try runBdpan(["mv", remotePath, destDir])
+    }
+
+    /// Copy a file or directory into a destination directory (server-side).
+    ///
+    /// Runs: `bdpan cp <remotePath> <destDir>`
+    func copyItem(from remotePath: String, toDirectory destDir: String) throws {
+        _ = try runBdpan(["cp", remotePath, destDir])
     }
 
     /// Delete a file or directory on Baidu Pan.
     ///
     /// Runs: `bdpan rm -f <remotePath>`
-    ///
-    /// The `-f` / `--force` flag skips the interactive confirmation prompt.
-    ///
-    /// - Parameter remotePath: Path relative to `/apps/bdpan/`, e.g. `我的视频/old.mp4`.
-    /// - Throws: `BdpanError` on CLI failure. Callers that treat deletion of a
-    ///   non-existent item as a no-op should catch `.pathNotFound` and ignore it.
     func deleteItem(at remotePath: String) throws {
         _ = try runBdpan(["rm", "-f", remotePath])
     }
