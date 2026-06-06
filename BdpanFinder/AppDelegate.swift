@@ -23,34 +23,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem?
     private var registeredDomain: NSFileProviderDomain?
+    private var refreshTimer: Timer?
 
     // MARK: - Application Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("BdpanFinder: applicationDidFinishLaunching called")
-        print("BdpanFinder: applicationDidFinishLaunching called")
         let domain = NSFileProviderDomain(
             identifier: AppDelegate.domainIdentifier,
             displayName: AppDelegate.domainDisplayName
         )
         self.registeredDomain = domain
+        setupStatusMenu()
 
-        NSFileProviderManager.add(domain) { error in
-            if let nsError = error as NSError?,
-               nsError.domain == NSCocoaErrorDomain,
-               nsError.code == NSFileWriteFileExistsError {
-                NSLog("BdpanFinder: domain already registered")
-                return
-            }
-            if let error = error {
-                NSLog("BdpanFinder: failed to add domain: \(error)")
-            } else {
-                NSLog("BdpanFinder: domain added successfully")
+        // Remove any existing domain first to clear stale local state, then re-add.
+        // This ensures the File Provider's pending-operation queue is wiped on every
+        // launch, preventing corrupted local state from replaying bad createItem calls.
+        NSFileProviderManager.remove(domain) { _ in
+            NSFileProviderManager.add(domain) { error in
+                if let error = error {
+                    NSLog("BdpanFinder: failed to add domain: \(error)")
+                } else {
+                    NSLog("BdpanFinder: domain added successfully")
+                }
             }
         }
 
-        NSLog("BdpanFinder: calling setupStatusMenu")
-        setupStatusMenu()
+        startAutoRefresh()
     }
 
     // MARK: - Status Menu
@@ -146,17 +145,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func reload() {
+        reimport()
+    }
+
+    private func reimport() {
         guard let domain = registeredDomain,
               let manager = NSFileProviderManager(for: domain) else {
             NSLog("BdpanFinder: no manager available for domain")
             return
         }
-        // Signalling the working set causes the system to call enumerateChanges,
-        // which triggers a full re-enumeration of all visible folders.
-        manager.signalEnumerator(for: .workingSet) { error in
+        // Signal the root container to trigger a fresh enumerateItems call
+        // from the server. reimportItems is NOT appropriate here — it scans
+        // local disk files and asks the extension to upload them, which is
+        // the opposite of what we want (pull from server).
+        manager.signalEnumerator(for: .rootContainer) { error in
             if let error = error {
                 NSLog("BdpanFinder: signalEnumerator error: \(error)")
             }
+        }
+    }
+
+    private func startAutoRefresh() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
+            self?.reimport()
         }
     }
 }

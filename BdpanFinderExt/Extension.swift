@@ -154,9 +154,16 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                         completionHandler(nil, [], false, NSFileProviderError(.noSuchItem))
                     }
                 } else {
-                    // Directory creation.
+                    // Directory creation — check server first to avoid creating
+                    // directories for items that already exist (files or dirs).
+                    // This guards against the File Provider system replaying
+                    // stale "pending create" operations from a corrupted local DB.
+                    let siblings = try? client.listFiles(at: parentPath)
+                    if let existing = siblings?.first(where: { $0.path == remotePath }) {
+                        completionHandler(BdpanProviderItem(fileInfo: existing), [], false, nil)
+                        return
+                    }
                     try client.createDirectory(at: remotePath)
-                    // Synthesize a local item; real metadata arrives on next enumeration.
                     let isoNow = ISO8601DateFormatter().string(from: Date())
                     let syntheticEntry = BdpanFileInfo(
                         fsId: 0,

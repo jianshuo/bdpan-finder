@@ -195,11 +195,30 @@ final class BdpanClient {
             )
         }
 
-        // Synchronous wait — intentional for extension use.
+        // Read stdout/stderr on dedicated Threads (not GCD global pool) to avoid
+        // two classes of deadlock:
+        // 1. Pipe deadlock: bdpan fills the 64KB pipe buffer and blocks on write
+        //    while waitUntilExit blocks on the process — drain the pipe concurrently.
+        // 2. GCD thread pool exhaustion: enumerateItems callers already occupy global
+        //    queue threads; DispatchQueue.global().async tasks for pipe reads queue
+        //    behind them and never start. Using Thread bypasses the pool entirely.
+        var stdoutData = Data()
+        var stderrData = Data()
+        let stdoutSem = DispatchSemaphore(value: 0)
+        let stderrSem = DispatchSemaphore(value: 0)
+        let stdoutThread = Thread {
+            stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+            stdoutSem.signal()
+        }
+        let stderrThread = Thread {
+            stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            stderrSem.signal()
+        }
+        stdoutThread.start()
+        stderrThread.start()
         process.waitUntilExit()
-
-        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        stdoutSem.wait()
+        stderrSem.wait()
 
         let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
         let stderr = String(data: stderrData, encoding: .utf8) ?? ""
