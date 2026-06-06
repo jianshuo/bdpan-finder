@@ -1,0 +1,94 @@
+name: BdpanFinder
+options:
+  deploymentTarget:
+    macOS: "12.0"
+  bundleIdPrefix: com.wangjianshuo
+
+settings:
+  SWIFT_VERSION: "5.9"
+  MACOSX_DEPLOYMENT_TARGET: "12.0"
+
+schemes:
+  BdpanFinder:
+    build:
+      targets:
+        BdpanFinder: all
+        BdpanFinderExt: all
+    run:
+      targets:
+        - BdpanFinder
+    test: {}
+    profile: {}
+    analyze: {}
+    archive: {}
+
+targets:
+
+  # ── Host Application ──────────────────────────────────────────────────────
+  BdpanFinder:
+    type: application
+    platform: macOS
+    deploymentTarget: "12.0"
+    sources:
+      - path: BdpanFinder
+    entitlements:
+      path: BdpanFinder/BdpanFinder.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.network.client: true
+        com.apple.security.application-groups:
+          - group.com.wangjianshuo.BdpanFinder
+    info:
+      path: BdpanFinder/Info.plist
+      properties:
+        CFBundleDisplayName: BdpanFinder
+        CFBundleName: BdpanFinder
+        NSHumanReadableCopyright: "Copyright 2026 Wang Jianshuo"
+        LSMinimumSystemVersion: "12.0"
+        NSPrincipalClass: NSApplication
+        NSApplicationActivationPolicy: accessory   # no Dock icon; lives in menu bar
+    dependencies:
+      - target: BdpanFinderExt
+        embed: true
+        codeSign: true
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.wangjianshuo.BdpanFinder
+      DEVELOPMENT_TEAM: 97XBW2A43H
+      CODE_SIGN_STYLE: Automatic
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  # ── File Provider Extension ───────────────────────────────────────────────
+  BdpanFinderExt:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "12.0"
+    sources:
+      - path: BdpanFinderExt
+    entitlements:
+      path: BdpanFinderExt/BdpanFinderExt.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.developer.fileprovider.testing-mode: true
+        com.apple.security.application-groups:
+          - group.com.wangjianshuo.BdpanFinder
+        com.apple.security.temporary-exception.files.absolute-path.read-write:
+          - /
+        com.apple.security.temporary-exception.sbpl: "(allow process-exec* (subpath \"/usr/bin\") (subpath \"/bin\") (subpath \"/usr/local\") (subpath \"/Users\"))"
+    info:
+      path: BdpanFinderExt/Info.plist
+      properties:
+        CFBundleDisplayName: BdpanFinderExt
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.fileprovider-nonui
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).FileProviderExtension
+          NSExtensionFileProviderDocumentGroup: group.com.wangjianshuo.BdpanFinder
+          NSExtensionFileProviderSupportsEnumeration: true
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.wangjianshuo.BdpanFinder.Extension
+      DEVELOPMENT_TEAM: 97XBW2A43H
+      CODE_SIGN_STYLE: Automatic
+      LD_RUNPATH_SEARCH_PATHS:
+        - $(inherited)
+        - "@executable_path/Frameworks"
+        - "@executable_path/../../Frameworks"
