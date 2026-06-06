@@ -154,13 +154,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("BdpanFinder: no manager available for domain")
             return
         }
-        // Signal the root container to trigger a fresh enumerateItems call
-        // from the server. reimportItems is NOT appropriate here — it scans
-        // local disk files and asks the extension to upload them, which is
-        // the opposite of what we want (pull from server).
+        // Signal the working set: triggers WorkingSetEnumerator.enumerateChanges,
+        // which scans all previously-visited directories, diffs against the cache,
+        // and reports additions and deletions — including items removed on the server.
+        // Also signal root so newly added top-level items appear without browsing first.
+        manager.signalEnumerator(for: .workingSet) { error in
+            if let error = error {
+                NSLog("BdpanFinder: signalEnumerator workingSet error: \(error)")
+            }
+        }
         manager.signalEnumerator(for: .rootContainer) { error in
             if let error = error {
-                NSLog("BdpanFinder: signalEnumerator error: \(error)")
+                NSLog("BdpanFinder: signalEnumerator rootContainer error: \(error)")
             }
         }
     }

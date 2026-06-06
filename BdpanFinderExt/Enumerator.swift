@@ -3,47 +3,25 @@ import FileProvider
 
 // MARK: - BdpanEnumerator
 
-/// Enumerates the contents of a single remote Baidu Pan directory.
-///
-/// One instance is created per directory the system wants to display.
-/// The extension creates the enumerator with the full remote path and a
-/// shared BdpanClient, then the FileProvider framework drives enumeration
-/// by calling `enumerateItems(for:startingAt:)`.
-///
-/// Because BdpanClient is synchronous (Process.waitUntilExit), all work
-/// is dispatched onto a global background queue rather than using async/await.
 final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
 
-    // MARK: - Properties
-
-    /// Full remote path to enumerate, e.g. "/apps/bdpan" for root or
-    /// "/apps/bdpan/我的视频" for a subdirectory.
     let path: String
-
-    /// Shared CLI wrapper. Thread-safe because BdpanClient has no mutable state
-    /// on its fast path (only bdpanPath, which is set once at startup).
     let client: BdpanClient
-
-    // MARK: - Initializer
 
     init(path: String, client: BdpanClient) {
         self.path = path
         self.client = client
     }
 
-    // MARK: - NSFileProviderEnumerator
+    // Cap concurrent enumerations so the GCD global pool stays free for
+    // user-initiated ops (fetchContents, createItem). Thread.detachNewThread
+    // keeps enumerations off GCD entirely.
+    static let enumSemaphore = DispatchSemaphore(value: 6)
 
-    /// Called by the system to retrieve the full directory listing.
-    ///
-    /// BdpanFinder does not paginate — bdpan returns all entries in one CLI call.
-    /// Every `page` value is therefore treated as "fetch everything from scratch".
-    ///
-    /// Dispatches to a global background queue so the synchronous Process call
-    /// does not block the extension's main thread.
-    // Cap concurrent enumerations so the GCD global pool stays available for
-    // user-initiated operations (fetchContents, createItem). Threads are used
-    // directly — not GCD — to guarantee pool separation.
-    private static let enumSemaphore = DispatchSemaphore(value: 6)
+    // Cache of each enumerated path → set of child item paths.
+    // Used by enumerateChanges and WorkingSetEnumerator to detect deletions.
+    static var itemCache: [String: Set<String>] = [:]
+    static let cacheLock = NSLock()
 
     func enumerateItems(
         for observer: NSFileProviderEnumerationObserver,
@@ -51,8 +29,6 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
     ) {
         let path = self.path
         let client = self.client
-        // Dedicated Thread keeps enumerations completely off the GCD global pool,
-        // so fetchContents / createItem always find a free worker thread.
         Thread.detachNewThread {
             BdpanEnumerator.enumSemaphore.wait()
             defer { BdpanEnumerator.enumSemaphore.signal() }
@@ -68,8 +44,14 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
             do {
                 let entries = try client.listFiles(at: path)
                 dblog("got \(entries.count) entries")
-                let items: [NSFileProviderItem] = entries.map { BdpanProviderItem(fileInfo: $0) }
-                observer.didEnumerate(items)
+
+                // Update cache so WorkingSetEnumerator can detect deletions later.
+                let currentPaths = Set(entries.map { $0.path })
+                BdpanEnumerator.cacheLock.lock()
+                BdpanEnumerator.itemCache[path] = currentPaths
+                BdpanEnumerator.cacheLock.unlock()
+
+                observer.didEnumerate(entries.map { BdpanProviderItem(fileInfo: $0) })
                 observer.finishEnumerating(upTo: nil)
             } catch BdpanError.pathNotFound {
                 dblog("error: pathNotFound")
@@ -84,34 +66,112 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
         }
     }
 
-    /// Called by the system for incremental sync (working set).
-    ///
-    /// bdpan CLI does not expose a server-side change cursor, so BdpanFinder
-    /// reports no changes here and relies on full re-enumeration triggered by
-    /// `NSFileProviderManager.signalEnumerator` from the host app instead.
     func enumerateChanges(
         for observer: NSFileProviderChangeObserver,
         from anchor: NSFileProviderSyncAnchor
     ) {
-        observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+        // Individual-container change enumeration: re-fetch this directory and
+        // report deletions by diffing against the cached snapshot.
+        let path = self.path
+        let client = self.client
+        Thread.detachNewThread {
+            BdpanEnumerator.enumSemaphore.wait()
+            defer { BdpanEnumerator.enumSemaphore.signal() }
+
+            guard let entries = try? client.listFiles(at: path) else {
+                observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+                return
+            }
+            let currentPaths = Set(entries.map { $0.path })
+
+            BdpanEnumerator.cacheLock.lock()
+            let previousPaths = BdpanEnumerator.itemCache[path] ?? currentPaths
+            BdpanEnumerator.itemCache[path] = currentPaths
+            BdpanEnumerator.cacheLock.unlock()
+
+            observer.didUpdate(entries.map { BdpanProviderItem(fileInfo: $0) })
+
+            let deleted = previousPaths.subtracting(currentPaths)
+                .map { NSFileProviderItemIdentifier($0) }
+            if !deleted.isEmpty {
+                observer.didDeleteItems(withIdentifiers: deleted)
+            }
+
+            let newAnchor = NSFileProviderSyncAnchor(Data(String(Date().timeIntervalSince1970).utf8))
+            observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
+        }
     }
 
-    /// Returns a sync anchor based on the current wall-clock time.
-    ///
-    /// Using a timestamp means the anchor is always "new", which causes the
-    /// system to call `enumerateChanges` on its next sync cycle. Combined with
-    /// the no-op `enumerateChanges` implementation above, this achieves a
-    /// simple pull-on-demand model without a real server-side cursor.
-    func currentSyncAnchor(
-        completionHandler completion: @escaping (NSFileProviderSyncAnchor?) -> Void
-    ) {
+    func currentSyncAnchor(completionHandler completion: @escaping (NSFileProviderSyncAnchor?) -> Void) {
         let data = Data(String(Date().timeIntervalSince1970).utf8)
         completion(NSFileProviderSyncAnchor(data))
     }
 
-    /// Tear down any resources held by this enumerator instance.
-    ///
-    /// BdpanEnumerator has no long-lived resources (no open file handles,
-    /// no background tasks), so nothing needs to be released here.
     func invalidate() {}
+}
+
+// MARK: - WorkingSetEnumerator
+
+// The working set is the global change feed for NSFileProviderReplicatedExtension.
+// When signaled, it scans all previously-visited directories, diffs against the
+// cached snapshot, and reports additions/deletions — enabling remote-side changes
+// (e.g. files deleted on Baidu Pan website) to propagate to Finder automatically.
+final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator {
+
+    let client: BdpanClient
+
+    init(client: BdpanClient) {
+        self.client = client
+    }
+
+    func invalidate() {}
+
+    func enumerateItems(
+        for observer: NSFileProviderEnumerationObserver,
+        startingAt page: NSFileProviderPage
+    ) {
+        observer.finishEnumerating(upTo: nil)
+    }
+
+    func enumerateChanges(
+        for observer: NSFileProviderChangeObserver,
+        from anchor: NSFileProviderSyncAnchor
+    ) {
+        let client = self.client
+        Thread.detachNewThread {
+            // Snapshot the cache keys so we don't hold the lock during I/O.
+            BdpanEnumerator.cacheLock.lock()
+            let snapshot = BdpanEnumerator.itemCache
+            BdpanEnumerator.cacheLock.unlock()
+
+            for (path, previousPaths) in snapshot {
+                BdpanEnumerator.enumSemaphore.wait()
+                let entries = (try? client.listFiles(at: path)) ?? []
+                BdpanEnumerator.enumSemaphore.signal()
+
+                let currentPaths = Set(entries.map { $0.path })
+
+                BdpanEnumerator.cacheLock.lock()
+                BdpanEnumerator.itemCache[path] = currentPaths
+                BdpanEnumerator.cacheLock.unlock()
+
+                if !entries.isEmpty {
+                    observer.didUpdate(entries.map { BdpanProviderItem(fileInfo: $0) })
+                }
+                let deleted = previousPaths.subtracting(currentPaths)
+                    .map { NSFileProviderItemIdentifier($0) }
+                if !deleted.isEmpty {
+                    observer.didDeleteItems(withIdentifiers: deleted)
+                }
+            }
+
+            let newAnchor = NSFileProviderSyncAnchor(Data(String(Date().timeIntervalSince1970).utf8))
+            observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
+        }
+    }
+
+    func currentSyncAnchor(completionHandler completion: @escaping (NSFileProviderSyncAnchor?) -> Void) {
+        let data = Data(String(Date().timeIntervalSince1970).utf8)
+        completion(NSFileProviderSyncAnchor(data))
+    }
 }

@@ -301,12 +301,13 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             let url = URL(fileURLWithPath: "/tmp/bdpan-ext-debug.log")
             if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(d); try? fh.close() }
         }
+        if containerItemIdentifier == .workingSet {
+            return WorkingSetEnumerator(client: client)
+        }
         let path: String
-        if containerItemIdentifier == .rootContainer
-            || containerItemIdentifier == .workingSet {
+        if containerItemIdentifier == .rootContainer {
             path = "/apps/bdpan"
         } else {
-            // rawValue IS the full /apps/bdpan/... remote path.
             path = containerItemIdentifier.rawValue
         }
         return BdpanEnumerator(path: path, client: client)
