@@ -98,9 +98,37 @@ final class BdpanProviderItem: NSObject, NSFileProviderItem {
             if info.isdir {
                 return .folder
             }
-            // Derive UTType from the file extension; fall back to generic data.
-            let ext = (info.serverFilename as NSString).pathExtension
-            return UTType(filenameExtension: ext) ?? .data
+            // Explicit mapping for common types: dynamic UTType(filenameExtension:)
+            // can resolve to an overly-generic supertype inside a sandboxed extension.
+            let ext = (info.serverFilename as NSString).pathExtension.lowercased()
+            switch ext {
+            case "mp4", "m4v":       return .mpeg4Movie
+            case "mov":              return .quickTimeMovie
+            case "avi":              return .avi
+            case "mp3":              return .mp3
+            case "m4a", "aac":       return .mpeg4Audio
+            case "wav":              return .wav
+            case "flac":             return UTType(filenameExtension: "flac") ?? .audio
+            case "jpg", "jpeg":      return .jpeg
+            case "png":              return .png
+            case "gif":              return .gif
+            case "heic", "heif":     return .heic
+            case "tiff", "tif":      return .tiff
+            case "webp":             return UTType(filenameExtension: "webp") ?? .image
+            case "pdf":              return .pdf
+            case "zip":              return .zip
+            case "gz":               return .gzip
+            case "tar":              return UTType(filenameExtension: "tar") ?? .data
+            case "txt":              return .plainText
+            case "html", "htm":      return .html
+            case "json":             return .json
+            case "xml":              return .xml
+            case "md":               return UTType(filenameExtension: "md") ?? .plainText
+            case "doc", "docx":      return UTType(filenameExtension: ext) ?? .data
+            case "xls", "xlsx":      return UTType(filenameExtension: ext) ?? .data
+            case "ppt", "pptx":      return UTType(filenameExtension: ext) ?? .data
+            default:                 return UTType(filenameExtension: ext) ?? .data
+            }
         }
     }
 

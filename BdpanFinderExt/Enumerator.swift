@@ -40,11 +40,23 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
     ///
     /// Dispatches to a global background queue so the synchronous Process call
     /// does not block the extension's main thread.
+    // Cap concurrent enumerations so the GCD global pool stays available for
+    // user-initiated operations (fetchContents, createItem). Threads are used
+    // directly — not GCD — to guarantee pool separation.
+    private static let enumSemaphore = DispatchSemaphore(value: 6)
+
     func enumerateItems(
         for observer: NSFileProviderEnumerationObserver,
         startingAt page: NSFileProviderPage
     ) {
-        DispatchQueue.global().async { [path, client] in
+        let path = self.path
+        let client = self.client
+        // Dedicated Thread keeps enumerations completely off the GCD global pool,
+        // so fetchContents / createItem always find a free worker thread.
+        Thread.detachNewThread {
+            BdpanEnumerator.enumSemaphore.wait()
+            defer { BdpanEnumerator.enumSemaphore.signal() }
+
             func dblog(_ msg: String) {
                 let line = "enumerateItems[\(path)]: \(msg)\n"
                 if let d = line.data(using: .utf8) {
@@ -61,12 +73,10 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
                 observer.finishEnumerating(upTo: nil)
             } catch BdpanError.pathNotFound {
                 dblog("error: pathNotFound")
-                observer.finishEnumeratingWithError(
-                    NSFileProviderError(.noSuchItem))
+                observer.finishEnumeratingWithError(NSFileProviderError(.noSuchItem))
             } catch BdpanError.tokenExpired {
                 dblog("error: tokenExpired")
-                observer.finishEnumeratingWithError(
-                    NSFileProviderError(.serverUnreachable))
+                observer.finishEnumeratingWithError(NSFileProviderError(.serverUnreachable))
             } catch {
                 dblog("error: \(error)")
                 observer.finishEnumeratingWithError(error)
