@@ -209,6 +209,8 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             let oldBasename = (oldPath as NSString).lastPathComponent
             let oldParent  = (oldPath as NSString).deletingLastPathComponent
 
+            NSLog("BdpanFinderExt: modifyItem \(oldPath) fields=\(changedFields.rawValue) newParent=\(item.parentItemIdentifier.rawValue) newName=\(item.filename)")
+
             do {
                 // 1. Re-upload file content if body changed.
                 if changedFields.contains(.contents), let newContents = newContents {
@@ -303,6 +305,9 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         }
         if containerItemIdentifier == .workingSet {
             return WorkingSetEnumerator(client: client)
+        }
+        if containerItemIdentifier == .trashContainer {
+            return EmptyEnumerator()
         }
         let path: String
         if containerItemIdentifier == .rootContainer {
