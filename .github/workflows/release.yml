@@ -29,49 +29,43 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" build.keychain
           rm certificate.p12
 
-      - name: Setup API Key
-        env:
-          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-        run: |
-          mkdir -p ~/private_keys
-          echo "$APPLE_API_KEY_CONTENT" > ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
-
-      - name: Archive
-        env:
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      - name: Build (no signing)
         run: |
           xcodebuild archive \
             -scheme BdpanFinder \
             -configuration Release \
             -archivePath build/BdpanFinder.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
-            -authenticationKeyID "$APPLE_API_KEY_ID" \
-            -authenticationKeyIssuerID "$APPLE_API_ISSUER" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM=97XBW2A43H
 
-      - name: Export
-        env:
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      - name: Sign with Developer ID
         run: |
-          xcodebuild -exportArchive \
-            -archivePath build/BdpanFinder.xcarchive \
-            -exportPath build/ \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
-            -authenticationKeyID "$APPLE_API_KEY_ID" \
-            -authenticationKeyIssuerID "$APPLE_API_ISSUER"
+          APP="build/BdpanFinder.xcarchive/Products/Applications/BdpanFinder.app"
+          APPEX="$APP/Contents/PlugIns/BdpanFinderExt.appex"
+          IDENTITY="Developer ID Application: Jian Shuo Wang (97XBW2A43H)"
+
+          # Sign inner → outer
+          codesign --force --sign "$IDENTITY" \
+            --entitlements BdpanFinderExt/BdpanFinderExt-Release.entitlements \
+            --options runtime \
+            "$APPEX"
+
+          codesign --force --sign "$IDENTITY" \
+            --entitlements BdpanFinder/BdpanFinder.entitlements \
+            --options runtime \
+            "$APP"
+
+          cp -r "$APP" build/BdpanFinder.app
 
       - name: Notarize
         env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
+          mkdir -p ~/private_keys
+          echo "$APPLE_API_KEY_CONTENT" > ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
           ditto -c -k --keepParent build/BdpanFinder.app build/BdpanFinder-notarize.zip
           xcrun notarytool submit build/BdpanFinder-notarize.zip \
             --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
@@ -82,17 +76,13 @@ jobs:
       - name: Staple
         run: xcrun stapler staple build/BdpanFinder.app
 
-      - name: Package
+      - name: Package and Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           ditto -c -k --keepParent build/BdpanFinder.app \
             "build/BdpanFinder-${TAG}.zip"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
           gh release create "$TAG" \
             "build/BdpanFinder-${TAG}.zip" \
             --title "$TAG" \
