@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA11BB22CC33DD44EE55FF66 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE551234 /* Assets.xcassets */; };
 		2758D1C471A888096E4CF8DD /* Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628AEE374AA4EB839C391C76 /* Enumerator.swift */; };
 		29F831F2289C4ECB52DA3D62 /* Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3949F0E7BF52971ECAA10C3 /* Extension.swift */; };
 		4BDD1A15F302B0530A714A22 /* BdpanFinderExt.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F08357581CD5322CA59EFA7 /* BdpanFinderExt.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -52,6 +53,7 @@
 		904342FDDBDE3EC49F0BF243 /* BdpanClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BdpanClient.swift; sourceTree = "<group>"; };
 		9685D6DCA495388594C6542B /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		A1C41E12D8ACCDC0600A9109 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE551234 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E3949F0E7BF52971ECAA10C3 /* Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extension.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -68,6 +70,7 @@
 		5CA70F4C2231A8A800B9AE6E /* BdpanFinder */ = {
 			isa = PBXGroup;
 			children = (
+				AA11BB22CC33DD44EE551234 /* Assets.xcassets */,
 				87BED7655F84750D07484474 /* AppDelegate.swift */,
 				1D25EF201FE6CEE026F288FF /* BdpanFinder.entitlements */,
 				3E9A6317ECAE5A56CD0E2572 /* Info.plist */,
@@ -105,6 +108,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D3F98DC305A527BC7B1FB0DD /* Build configuration list for PBXNativeTarget "BdpanFinder" */;
 			buildPhases = (
+				DD44EE55FF66AA11BB22CC33 /* Resources */,
 				8D5157CCE9D0205050C68C4A /* Sources */,
 				6FFB5C65A6929D90F274C478 /* Embed Foundation Extensions */,
 			);
@@ -173,6 +177,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DD44EE55FF66AA11BB22CC33 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA11BB22CC33DD44EE55FF66 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8D5157CCE9D0205050C68C4A /* Sources */ = {
