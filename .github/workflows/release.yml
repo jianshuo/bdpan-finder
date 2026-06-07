@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-notarize-release:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import Developer ID Certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          echo "$CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -scheme BdpanFinder \
+            -configuration Release \
+            -archivePath build/BdpanFinder.xcarchive \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=97XBW2A43H
+
+      - name: Export
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/BdpanFinder.xcarchive \
+            -exportPath build/ \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          ditto -c -k --keepParent build/BdpanFinder.app build/BdpanFinder-notarize.zip
+          xcrun notarytool submit build/BdpanFinder-notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id 97XBW2A43H \
+            --wait
+
+      - name: Staple
+        run: xcrun stapler staple build/BdpanFinder.app
+
+      - name: Package
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          ditto -c -k --keepParent build/BdpanFinder.app \
+            "build/BdpanFinder-${TAG}.zip"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" \
+            "build/BdpanFinder-${TAG}.zip" \
+            --title "$TAG" \
+            --generate-notes
