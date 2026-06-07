@@ -40,6 +40,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM=97XBW2A43H
 
+      - name: Verify certificate
+        run: |
+          security find-identity -v -p codesigning
+          security find-identity -v -p codesigning build.keychain || true
+
       - name: Sign with Developer ID
         run: |
           APP="build/BdpanFinder.xcarchive/Products/Applications/BdpanFinder.app"
