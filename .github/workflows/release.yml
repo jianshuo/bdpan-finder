@@ -89,9 +89,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          ditto -c -k --keepParent build/BdpanFinder.app \
-            "build/BdpanFinder-${TAG}.zip"
+          mkdir -p build/dmg-staging
+          cp -r build/BdpanFinder.app build/dmg-staging/BdpanFinder.app
+          ln -s /Applications build/dmg-staging/Applications
+          hdiutil create \
+            -volname "BdpanFinder ${TAG}" \
+            -srcfolder build/dmg-staging \
+            -ov -format UDZO \
+            "build/BdpanFinder-${TAG}.dmg"
           gh release create "$TAG" \
-            "build/BdpanFinder-${TAG}.zip" \
+            "build/BdpanFinder-${TAG}.dmg" \
             --title "$TAG" \
             --generate-notes
