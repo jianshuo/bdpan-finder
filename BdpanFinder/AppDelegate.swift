@@ -68,10 +68,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Onboarding
 
     private func appLog(_ s: String) {
-        let line = "[\(Date())] \(s)\n"
-        let url = URL(fileURLWithPath: "/tmp/bdpan-app-debug.log")
-        if !FileManager.default.fileExists(atPath: url.path) { FileManager.default.createFile(atPath: url.path, contents: nil) }
-        if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(line.data(using: .utf8)!); try? fh.close() }
         NSLog("BdpanFinder: \(s)")
     }
 
