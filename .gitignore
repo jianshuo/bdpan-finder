@@ -1,3 +1,4 @@
 *.xcuserstate
 
 dist/
+docs/*.dmg
