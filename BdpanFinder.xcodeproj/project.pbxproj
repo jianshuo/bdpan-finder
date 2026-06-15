@@ -7,14 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA11BB22CC33DD44EE55FF66 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE551234 /* Assets.xcassets */; };
+		03C2D42DBCFFB92D9F80299F /* AppOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161056CDEA58E08E6467A2B8 /* AppOnboarding.swift */; };
 		2758D1C471A888096E4CF8DD /* Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628AEE374AA4EB839C391C76 /* Enumerator.swift */; };
 		29F831F2289C4ECB52DA3D62 /* Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3949F0E7BF52971ECAA10C3 /* Extension.swift */; };
 		4BDD1A15F302B0530A714A22 /* BdpanFinderExt.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F08357581CD5322CA59EFA7 /* BdpanFinderExt.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5854FBD6698D5CC416A3A32F /* BdpanClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904342FDDBDE3EC49F0BF243 /* BdpanClient.swift */; };
 		5C0EC532ED0458312B794113 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9685D6DCA495388594C6542B /* Item.swift */; };
+		7A838C549A1896CFB12CD412 /* bdpan in Resources */ = {isa = PBXBuildFile; fileRef = B6DE62F0748A9C8823FC99BB /* bdpan */; };
 		A3586594F23AF58A56E9570F /* Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633E7B9961B4D744ABF2EA08 /* Model.swift */; };
+		AC641A9EBBF545ABDCAB71EF /* OnboardingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D1BE31FFC21DADACE4F63F2 /* OnboardingWindow.swift */; };
+		B8E32BC263479A6933F71983 /* bdpan in Resources */ = {isa = PBXBuildFile; fileRef = B6DE62F0748A9C8823FC99BB /* bdpan */; };
+		BFE3189A322464F6E441E83A /* DebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78010A94C9C1499E8883E4B3 /* DebugLog.swift */; };
 		CCB6E15975784F874ECDA087 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87BED7655F84750D07484474 /* AppDelegate.swift */; };
+		DA7AC4717284FAA88F842D11 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7758C92FF107F192AFA1D3BE /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,6 +47,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0D1BE31FFC21DADACE4F63F2 /* OnboardingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindow.swift; sourceTree = "<group>"; };
+		161056CDEA58E08E6467A2B8 /* AppOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboarding.swift; sourceTree = "<group>"; };
 		1D25EF201FE6CEE026F288FF /* BdpanFinder.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BdpanFinder.entitlements; sourceTree = "<group>"; };
 		3E9A6317ECAE5A56CD0E2572 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		409CF2065E80DBF3149B5EB2 /* BdpanFinderExt.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BdpanFinderExt.entitlements; sourceTree = "<group>"; };
@@ -49,20 +56,32 @@
 		4F08357581CD5322CA59EFA7 /* BdpanFinderExt.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BdpanFinderExt.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		628AEE374AA4EB839C391C76 /* Enumerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Enumerator.swift; sourceTree = "<group>"; };
 		633E7B9961B4D744ABF2EA08 /* Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Model.swift; sourceTree = "<group>"; };
+		7758C92FF107F192AFA1D3BE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		78010A94C9C1499E8883E4B3 /* DebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLog.swift; sourceTree = "<group>"; };
 		87BED7655F84750D07484474 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		904342FDDBDE3EC49F0BF243 /* BdpanClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BdpanClient.swift; sourceTree = "<group>"; };
 		9685D6DCA495388594C6542B /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		A1C41E12D8ACCDC0600A9109 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		AA11BB22CC33DD44EE551234 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B6DE62F0748A9C8823FC99BB /* bdpan */ = {isa = PBXFileReference; path = bdpan; sourceTree = "<group>"; };
+		CD3E79D94832860CE5D61634 /* BdpanFinderExt-Release.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "BdpanFinderExt-Release.entitlements"; sourceTree = "<group>"; };
 		E3949F0E7BF52971ECAA10C3 /* Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extension.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		20A3B0633D4FC638F9F9E716 /* vendor */ = {
+			isa = PBXGroup;
+			children = (
+				B6DE62F0748A9C8823FC99BB /* bdpan */,
+			);
+			path = vendor;
+			sourceTree = "<group>";
+		};
 		2D6706A61FE3CC6C0C30B703 = {
 			isa = PBXGroup;
 			children = (
 				5CA70F4C2231A8A800B9AE6E /* BdpanFinder */,
 				C5A1110D85DFD597A7B29161 /* BdpanFinderExt */,
+				20A3B0633D4FC638F9F9E716 /* vendor */,
 				A065FA5B574C28746B496842 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -70,10 +89,12 @@
 		5CA70F4C2231A8A800B9AE6E /* BdpanFinder */ = {
 			isa = PBXGroup;
 			children = (
-				AA11BB22CC33DD44EE551234 /* Assets.xcassets */,
 				87BED7655F84750D07484474 /* AppDelegate.swift */,
+				161056CDEA58E08E6467A2B8 /* AppOnboarding.swift */,
+				7758C92FF107F192AFA1D3BE /* Assets.xcassets */,
 				1D25EF201FE6CEE026F288FF /* BdpanFinder.entitlements */,
 				3E9A6317ECAE5A56CD0E2572 /* Info.plist */,
+				0D1BE31FFC21DADACE4F63F2 /* OnboardingWindow.swift */,
 			);
 			path = BdpanFinder;
 			sourceTree = "<group>";
@@ -91,7 +112,9 @@
 			isa = PBXGroup;
 			children = (
 				904342FDDBDE3EC49F0BF243 /* BdpanClient.swift */,
+				CD3E79D94832860CE5D61634 /* BdpanFinderExt-Release.entitlements */,
 				409CF2065E80DBF3149B5EB2 /* BdpanFinderExt.entitlements */,
+				78010A94C9C1499E8883E4B3 /* DebugLog.swift */,
 				628AEE374AA4EB839C391C76 /* Enumerator.swift */,
 				E3949F0E7BF52971ECAA10C3 /* Extension.swift */,
 				A1C41E12D8ACCDC0600A9109 /* Info.plist */,
@@ -108,8 +131,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D3F98DC305A527BC7B1FB0DD /* Build configuration list for PBXNativeTarget "BdpanFinder" */;
 			buildPhases = (
-				DD44EE55FF66AA11BB22CC33 /* Resources */,
 				8D5157CCE9D0205050C68C4A /* Sources */,
+				8BAF2114919E232C0695742F /* Resources */,
 				6FFB5C65A6929D90F274C478 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -129,6 +152,7 @@
 			buildConfigurationList = 848389FA166022C7E9206640 /* Build configuration list for PBXNativeTarget "BdpanFinderExt" */;
 			buildPhases = (
 				FC13FA681CDE39F2822543AE /* Sources */,
+				2B61A194F23244C5DF7F9898 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -151,9 +175,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					38A8616D420B980E89E793D3 = {
+						DevelopmentTeam = 97XBW2A43H;
 						ProvisioningStyle = Automatic;
 					};
 					CF9E298A525A04BC15E51126 = {
+						DevelopmentTeam = 97XBW2A43H;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -179,11 +205,20 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DD44EE55FF66AA11BB22CC33 /* Resources */ = {
+		2B61A194F23244C5DF7F9898 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA11BB22CC33DD44EE55FF66 /* Assets.xcassets in Resources */,
+				7A838C549A1896CFB12CD412 /* bdpan in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8BAF2114919E232C0695742F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA7AC4717284FAA88F842D11 /* Assets.xcassets in Resources */,
+				B8E32BC263479A6933F71983 /* bdpan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +230,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				CCB6E15975784F874ECDA087 /* AppDelegate.swift in Sources */,
+				03C2D42DBCFFB92D9F80299F /* AppOnboarding.swift in Sources */,
+				AC641A9EBBF545ABDCAB71EF /* OnboardingWindow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,6 +240,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5854FBD6698D5CC416A3A32F /* BdpanClient.swift in Sources */,
+				BFE3189A322464F6E441E83A /* DebugLog.swift in Sources */,
 				2758D1C471A888096E4CF8DD /* Enumerator.swift in Sources */,
 				29F831F2289C4ECB52DA3D62 /* Extension.swift in Sources */,
 				5C0EC532ED0458312B794113 /* Item.swift in Sources */,

@@ -34,11 +34,7 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
             defer { BdpanEnumerator.enumSemaphore.signal() }
 
             func dblog(_ msg: String) {
-                let line = "enumerateItems[\(path)]: \(msg)\n"
-                if let d = line.data(using: .utf8) {
-                    let url = URL(fileURLWithPath: "/tmp/bdpan-ext-debug.log")
-                    if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(d); try? fh.close() }
-                }
+                bdpanDebugLog("enumerateItems[\(path)]: \(msg)")
             }
             dblog("start")
             do {

@@ -20,15 +20,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         self.domain = domain
         self.client = BdpanClient()
         super.init()
-        let msg = "BdpanFinderExt init at \(Date()) domain=\(domain.identifier.rawValue)\n"
-        if let data = msg.data(using: .utf8) {
-            let url = URL(fileURLWithPath: "/tmp/bdpan-ext-debug.log")
-            if FileManager.default.fileExists(atPath: url.path) {
-                if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(data); try? fh.close() }
-            } else {
-                try? data.write(to: url)
-            }
-        }
+        bdpanDebugLog("BdpanFinderExt init domain=\(domain.identifier.rawValue) bdpanPath=\(client.bdpanPath) cfg=\(BdpanClient.configPath())")
     }
 
     func invalidate() {}
@@ -298,11 +290,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         for containerItemIdentifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest
     ) throws -> NSFileProviderEnumerator {
-        let logMsg = "enumerator called for: \(containerItemIdentifier.rawValue)\n"
-        if let d = logMsg.data(using: .utf8) {
-            let url = URL(fileURLWithPath: "/tmp/bdpan-ext-debug.log")
-            if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(d); try? fh.close() }
-        }
+        bdpanDebugLog("enumerator called for: \(containerItemIdentifier.rawValue)")
         if containerItemIdentifier == .workingSet {
             return WorkingSetEnumerator(client: client)
         }

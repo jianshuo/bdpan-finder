@@ -41,9 +41,52 @@ final class BdpanClient {
 
     // MARK: - Configuration
 
-    /// Path to the bdpan binary.
-    /// Override in unit tests by pointing to a stub executable.
-    var bdpanPath: String = "/Users/jianshuo/.local/bin/bdpan"
+    /// Path to the bdpan binary. Resolves to the copy bundled inside this
+    /// extension/app bundle so a sandboxed, notarized build can exec it with no
+    /// temporary-exception entitlement. Override in unit tests.
+    var bdpanPath: String = BdpanClient.bundledBdpanPath()
+
+    /// Bundle identifier of the File Provider extension.
+    static let extensionBundleIdentifier = "com.wangjianshuo.BdpanFinder.Extension"
+
+    /// Real home directory (`/Users/<name>`), resolved even from inside the
+    /// sandbox where `NSHomeDirectory()` returns the container path.
+    static func realHome() -> String {
+        if let pwd = Darwin.getpwuid(Darwin.getuid()) {
+            return String(cString: pwd.pointee.pw_dir)
+        }
+        return NSHomeDirectory()
+    }
+
+    /// The File Provider extension's data container. This is the one location
+    /// both processes can reach without an authorized App Group:
+    /// - the sandboxed extension owns it (it is its own sandbox home), and
+    /// - the non-sandboxed host app can write into it as the same user.
+    /// bdpan's login config (OAuth token + `.token_key`) lives here so the
+    /// sandbox never needs to reach ~/.config and we avoid App-Group
+    /// provisioning entirely.
+    static func containerDir() -> String {
+        return realHome() + "/Library/Containers/\(extensionBundleIdentifier)/Data"
+    }
+
+    /// Directory holding bdpan's config files inside the shared container.
+    static func bdpanConfigDir() -> String {
+        return containerDir() + "/bdpan"
+    }
+
+    /// Full path to bdpan's config file.
+    static func configPath() -> String {
+        return bdpanConfigDir() + "/config.json"
+    }
+
+    /// Locate the bundled `bdpan` executable. Falls back to the legacy
+    /// ~/.local/bin path for dev checkouts that haven't vendored it yet.
+    static func bundledBdpanPath() -> String {
+        if let url = Bundle(for: BdpanClient.self).url(forResource: "bdpan", withExtension: nil) {
+            return url.path
+        }
+        return realHome() + "/.local/bin/bdpan"
+    }
 
     // MARK: - Public API
 
@@ -168,19 +211,21 @@ final class BdpanClient {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: bdpanPath)
-        process.arguments = arguments
 
-        // Propagate the user environment so bdpan can reach its OAuth config at
-        // ~/.config/bdpan/config.json. In a sandboxed extension NSHomeDirectory()
-        // returns the container path, so use getpwuid to get the real home.
+        // Pin bdpan's config (OAuth token) to the App Group container so the
+        // sandboxed extension and the host app share one login without ever
+        // touching ~/.config. --config-path is a global flag and is valid before
+        // the subcommand.
+        // Pin bdpan's config (OAuth token + .token_key) to the shared container
+        // directory. --config-path is a global flag, valid before the subcommand;
+        // bdpan resolves .token_key next to it.
+        let fullArgs = ["--config-path", BdpanClient.configPath()] + arguments
+        process.arguments = fullArgs
+
+        // Point HOME at the shared container so anything bdpan writes relative to
+        // the home directory also lands in the sandbox-accessible container.
         var env = ProcessInfo.processInfo.environment
-        let realHome: String
-        if let pwd = Darwin.getpwuid(Darwin.getuid()) {
-            realHome = String(cString: pwd.pointee.pw_dir)
-        } else {
-            realHome = env["HOME"] ?? NSHomeDirectory()
-        }
-        env["HOME"] = realHome
+        env["HOME"] = BdpanClient.containerDir()
         process.environment = env
 
         let stdoutPipe = Pipe()
@@ -189,13 +234,9 @@ final class BdpanClient {
         process.standardError  = stderrPipe
 
         func dblog(_ msg: String) {
-            let line = "BdpanClient[\(arguments.first ?? "?")]: \(msg)\n"
-            if let d = line.data(using: .utf8) {
-                let url = URL(fileURLWithPath: "/tmp/bdpan-ext-debug.log")
-                if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(d); try? fh.close() }
-            }
+            bdpanDebugLog("BdpanClient[\(arguments.first ?? "?")]: \(msg)")
         }
-        dblog("launching \(bdpanPath) \(arguments.joined(separator: " "))")
+        dblog("launching \(bdpanPath) \(fullArgs.joined(separator: " "))")
         do {
             try process.run()
         } catch {

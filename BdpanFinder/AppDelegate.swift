@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var registeredDomain: NSFileProviderDomain?
     private var refreshTimer: Timer?
+    private var onboarding: OnboardingWindowController?
 
     // MARK: - Application Lifecycle
 
@@ -54,11 +55,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     } else {
                         NSLog("BdpanFinder: domain added successfully")
                     }
+                    // Once the domain (and thus the extension container) exists,
+                    // make sure the user is logged in — otherwise guide them.
+                    DispatchQueue.main.async { self.showOnboardingIfNeeded() }
                 }
             }
         }
 
         startAutoRefresh()
+    }
+
+    // MARK: - Onboarding
+
+    private func appLog(_ s: String) {
+        let line = "[\(Date())] \(s)\n"
+        let url = URL(fileURLWithPath: "/tmp/bdpan-app-debug.log")
+        if !FileManager.default.fileExists(atPath: url.path) { FileManager.default.createFile(atPath: url.path, contents: nil) }
+        if let fh = try? FileHandle(forWritingTo: url) { fh.seekToEndOfFile(); fh.write(line.data(using: .utf8)!); try? fh.close() }
+        NSLog("BdpanFinder: \(s)")
+    }
+
+    /// Show the login window unless bdpan already has a valid token.
+    private func showOnboardingIfNeeded() {
+        appLog("showOnboardingIfNeeded called")
+        DispatchQueue.global().async {
+            let loggedIn = BdpanSetup.isLoggedIn()
+            self.appLog("isLoggedIn=\(loggedIn) cfg=\(BdpanSetup.configPath()) bdpan=\(BdpanSetup.bundledBdpanPath() ?? "NIL")")
+            DispatchQueue.main.async {
+                if !loggedIn { self.presentOnboarding() }
+            }
+        }
+    }
+
+    @objc private func presentOnboarding() {
+        appLog("presentOnboarding called")
+        if onboarding == nil {
+            onboarding = OnboardingWindowController(onDone: { [weak self] in
+                self?.reload()
+            })
+        }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        onboarding?.showWindow(nil)
+        onboarding?.window?.center()
+        onboarding?.window?.makeKeyAndOrderFront(nil)
+        onboarding?.window?.orderFrontRegardless()
+        appLog("presentOnboarding shown window=\(String(describing: onboarding?.window))")
     }
 
     // MARK: - Status Menu
@@ -109,6 +151,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         reloadItem.target = self
         menu.addItem(reloadItem)
+
+        menu.addItem(.separator())
+
+        // Log in / switch Baidu account.
+        let loginItem = NSMenuItem(
+            title: "登录 / 重新登录…",
+            action: #selector(presentOnboarding),
+            keyEquivalent: ""
+        )
+        loginItem.target = self
+        menu.addItem(loginItem)
 
         menu.addItem(.separator())
 

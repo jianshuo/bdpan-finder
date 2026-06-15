@@ -31,6 +31,8 @@ targets:
     deploymentTarget: "12.0"
     sources:
       - path: BdpanFinder
+      - path: vendor/bdpan
+        buildPhase: resources
     entitlements:
       path: BdpanFinder/BdpanFinder.entitlements
       properties:
@@ -64,17 +66,15 @@ targets:
     deploymentTarget: "12.0"
     sources:
       - path: BdpanFinderExt
+      - path: vendor/bdpan
+        buildPhase: resources
     entitlements:
       path: BdpanFinderExt/BdpanFinderExt.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
-        com.apple.developer.fileprovider.testing-mode: true
         com.apple.security.application-groups:
           - group.com.wangjianshuo.BdpanFinder
-        com.apple.security.temporary-exception.files.absolute-path.read-write:
-          - /
-        com.apple.security.temporary-exception.sbpl: "(allow process-exec* (subpath \"/usr/bin\") (subpath \"/bin\") (subpath \"/usr/local\") (subpath \"/Users\"))"
     info:
       path: BdpanFinderExt/Info.plist
       properties:
