@@ -54,13 +54,13 @@ export NOTARY_ISSUER=<App Store Connect Issuer ID>
 
 `NOTARY_*` 不设置时，脚本只构建+签名+打包，跳过公证（DMG 本机可用，但在别人 Mac 上 Gatekeeper 会拦）。
 
-> ⚠️ 应用文件夹名必须是 `百度网盘.app`：`fileproviderd` 用 app 包文件夹名作为 Finder 边栏的标签。`build-dmg.sh` 已处理好。
+> ⚠️ 应用文件夹名必须是 `百度网盘.app`：`fileproviderd` 用 app 包文件夹名作为 Finder 边栏的标签。`build-dmg.sh` 和 GitHub Actions release 流程均已处理好。
 
 ## 架构
 
 - **BdpanFinder**（主 App，非沙箱）：菜单栏图标，注册 File Provider Domain，处理首次登录引导。
 - **BdpanFinderExt**（File Provider 扩展，沙箱）：响应 Finder 的文件请求，调用打包在内的 bdpan CLI。
-- **共享登录态**：bdpan 的登录配置存放在扩展的数据容器里（`~/Library/Containers/com.wangjianshuo.BdpanFinder.Extension/Data/bdpan/`）。非沙箱的主 App 写入、沙箱扩展读取 —— 既不依赖 App Group 授权，也让整个应用可以公证后直接分发。
+- **共享登录态**：bdpan 的登录配置存放在扩展的数据容器里（`~/Library/Containers/com.wangjianshuo.BdpanFinder.Extension/Data/bdpan/`）。非沙箱的主 App 写入、沙箱扩展读取 —— 登录态共享不依赖 App Group 共享容器（两个 target 都含有 App Group 授权是 File Provider framework 的要求，用于 `NSExtensionFileProviderDocumentGroup`，不用于认证状态的传递）。
 
 详见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
