@@ -23,6 +23,51 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
     static var itemCache: [String: Set<String>] = [:]
     static let cacheLock = NSLock()
 
+    private static let cacheFileName = "file-provider-cache.json"
+    private static var cacheLoaded = false
+
+    /// Persist the in-memory cache so deletions are still detectable after the
+    /// extension process is restarted by `fileproviderd`.
+    static func loadCache() {
+        guard !cacheLoaded else { return }
+        cacheLoaded = true
+        let url = URL(fileURLWithPath: BdpanClient.bdpanConfigDir())
+            .appendingPathComponent(cacheFileName)
+        guard let data = try? Data(contentsOf: url),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: [String]] else {
+            return
+        }
+        cacheLock.lock()
+        itemCache = dict.mapValues { Set($0) }
+        cacheLock.unlock()
+    }
+
+    static func saveCache() {
+        let dirURL = URL(fileURLWithPath: BdpanClient.bdpanConfigDir())
+        let url = dirURL.appendingPathComponent(cacheFileName)
+        cacheLock.lock()
+        let dict = itemCache.mapValues { Array($0) }
+        cacheLock.unlock()
+        guard let data = try? JSONSerialization.data(withJSONObject: dict) else { return }
+        try? FileManager.default.createDirectory(
+            at: dirURL, withIntermediateDirectories: true, attributes: nil)
+        try? data.write(to: url)
+    }
+
+    static func setCachedChildren(for path: String, children: Set<String>) {
+        cacheLock.lock()
+        itemCache[path] = children
+        cacheLock.unlock()
+        saveCache()
+    }
+
+    static func removeCachedPath(_ path: String) {
+        cacheLock.lock()
+        itemCache.removeValue(forKey: path)
+        cacheLock.unlock()
+        saveCache()
+    }
+
     func enumerateItems(
         for observer: NSFileProviderEnumerationObserver,
         startingAt page: NSFileProviderPage
@@ -32,6 +77,8 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
         Thread.detachNewThread {
             BdpanEnumerator.enumSemaphore.wait()
             defer { BdpanEnumerator.enumSemaphore.signal() }
+
+            BdpanEnumerator.loadCache()
 
             func dblog(_ msg: String) {
                 bdpanDebugLog("enumerateItems[\(path)]: \(msg)")
@@ -43,9 +90,7 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
 
                 // Update cache so WorkingSetEnumerator can detect deletions later.
                 let currentPaths = Set(entries.map { $0.path })
-                BdpanEnumerator.cacheLock.lock()
-                BdpanEnumerator.itemCache[path] = currentPaths
-                BdpanEnumerator.cacheLock.unlock()
+                BdpanEnumerator.setCachedChildren(for: path, children: currentPaths)
 
                 observer.didEnumerate(entries.map { BdpanProviderItem(fileInfo: $0) })
                 observer.finishEnumerating(upTo: nil)
@@ -74,16 +119,37 @@ final class BdpanEnumerator: NSObject, NSFileProviderEnumerator {
             BdpanEnumerator.enumSemaphore.wait()
             defer { BdpanEnumerator.enumSemaphore.signal() }
 
-            guard let entries = try? client.listFiles(at: path) else {
+            BdpanEnumerator.loadCache()
+
+            let entries: [BdpanFileInfo]
+            do {
+                entries = try client.listFiles(at: path)
+            } catch BdpanError.pathNotFound {
+                // The directory itself was deleted remotely. Report all cached
+                // children as deleted and remove the stale cache key.
+                BdpanEnumerator.cacheLock.lock()
+                let previousPaths = BdpanEnumerator.itemCache[path] ?? []
+                BdpanEnumerator.itemCache.removeValue(forKey: path)
+                BdpanEnumerator.cacheLock.unlock()
+                BdpanEnumerator.saveCache()
+                if !previousPaths.isEmpty {
+                    observer.didDeleteItems(withIdentifiers: previousPaths.map { NSFileProviderItemIdentifier($0) })
+                }
+                let newAnchor = NSFileProviderSyncAnchor(Data(String(Date().timeIntervalSince1970).utf8))
+                observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
+                return
+            } catch {
                 observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
                 return
             }
+
             let currentPaths = Set(entries.map { $0.path })
 
             BdpanEnumerator.cacheLock.lock()
             let previousPaths = BdpanEnumerator.itemCache[path] ?? currentPaths
             BdpanEnumerator.itemCache[path] = currentPaths
             BdpanEnumerator.cacheLock.unlock()
+            BdpanEnumerator.saveCache()
 
             observer.didUpdate(entries.map { BdpanProviderItem(fileInfo: $0) })
 
@@ -151,6 +217,8 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator {
     ) {
         let client = self.client
         Thread.detachNewThread {
+            BdpanEnumerator.loadCache()
+
             // Snapshot the cache keys so we don't hold the lock during I/O.
             BdpanEnumerator.cacheLock.lock()
             let snapshot = BdpanEnumerator.itemCache
@@ -158,8 +226,23 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator {
 
             for (path, previousPaths) in snapshot {
                 BdpanEnumerator.enumSemaphore.wait()
-                let entries = (try? client.listFiles(at: path)) ?? []
-                BdpanEnumerator.enumSemaphore.signal()
+                defer { BdpanEnumerator.enumSemaphore.signal() }
+
+                let entries: [BdpanFileInfo]
+                do {
+                    entries = try client.listFiles(at: path)
+                } catch BdpanError.pathNotFound {
+                    // Directory was deleted remotely. Remove the stale cache key
+                    // and report all previously-known children as deleted.
+                    BdpanEnumerator.removeCachedPath(path)
+                    if !previousPaths.isEmpty {
+                        observer.didDeleteItems(withIdentifiers: previousPaths.map { NSFileProviderItemIdentifier($0) })
+                    }
+                    continue
+                } catch {
+                    // Network or auth error — leave cache untouched and retry next cycle.
+                    continue
+                }
 
                 let currentPaths = Set(entries.map { $0.path })
 
@@ -176,6 +259,8 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator {
                     observer.didDeleteItems(withIdentifiers: deleted)
                 }
             }
+
+            BdpanEnumerator.saveCache()
 
             let newAnchor = NSFileProviderSyncAnchor(Data(String(Date().timeIntervalSince1970).utf8))
             observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)

@@ -215,15 +215,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Signal the working set: triggers WorkingSetEnumerator.enumerateChanges,
         // which scans all previously-visited directories, diffs against the cache,
         // and reports additions and deletions — including items removed on the server.
-        // Also signal root so newly added top-level items appear without browsing first.
         manager.signalEnumerator(for: .workingSet) { error in
             if let error = error {
                 NSLog("BdpanFinder: signalEnumerator workingSet error: \(error)")
-            }
-        }
-        manager.signalEnumerator(for: .rootContainer) { error in
-            if let error = error {
-                NSLog("BdpanFinder: signalEnumerator rootContainer error: \(error)")
             }
         }
     }

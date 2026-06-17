@@ -36,7 +36,8 @@ enum BdpanSetup {
             atPath: configDir(), withIntermediateDirectories: true)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: bin)
-        p.arguments = ["--config-path", configPath()] + args
+        // --no-check-update prevents update-check output from polluting stdout/stderr.
+        p.arguments = ["--no-check-update", "--config-path", configPath()] + args
         var env = ProcessInfo.processInfo.environment
         env["HOME"] = containerDir()
         p.environment = env

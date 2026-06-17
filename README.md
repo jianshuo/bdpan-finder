@@ -75,4 +75,5 @@ BDPAN_DEBUG=1 open /Applications/百度网盘.app
 ## 已知限制
 
 - 仅 Apple Silicon（bdpan 二进制为 arm64）。
+- 仅挂载百度网盘应用空间 `/apps/bdpan/` 下的文件，不是整个百度网盘根目录。
 - 大文件下载暂无进度条。

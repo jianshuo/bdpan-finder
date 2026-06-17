@@ -20,7 +20,18 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         self.domain = domain
         self.client = BdpanClient()
         super.init()
-        bdpanDebugLog("BdpanFinderExt init domain=\(domain.identifier.rawValue) bdpanPath=\(client.bdpanPath) cfg=\(BdpanClient.configPath())")
+        NSLog("BdpanFinderExt init domain=\(domain.identifier.rawValue) bdpanPath=\(client.bdpanPath) cfg=\(BdpanClient.configPath())")
+        // Verify the binary is reachable and the current token is valid as early
+        // as possible, so authentication issues surface in Console logs.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            do {
+                let output = try self.client.runBdpan(["whoami", "--json"])
+                NSLog("BdpanFinderExt whoami ok: \(output)")
+            } catch {
+                NSLog("BdpanFinderExt whoami failed: \(error)")
+            }
+        }
     }
 
     func invalidate() {}
@@ -46,12 +57,14 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             let parent = (path as NSString).deletingLastPathComponent
             do {
                 let entries = try client.listFiles(at: parent)
+                NSLog("BdpanFinderExt item lookup \(path): \(entries.count) siblings")
                 if let entry = entries.first(where: { $0.path == path }) {
                     completionHandler(BdpanProviderItem(fileInfo: entry), nil)
                 } else {
                     completionHandler(nil, NSFileProviderError(.noSuchItem))
                 }
             } catch {
+                NSLog("BdpanFinderExt item lookup \(path) error: \(error)")
                 completionHandler(nil, FileProviderExtension.mapError(error))
             }
         }
@@ -88,6 +101,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                     attributes: nil
                 )
                 try client.downloadFile(from: remotePath, to: fileURL)
+                NSLog("BdpanFinderExt fetchContents downloaded \(remotePath)")
 
                 // Re-fetch metadata to hand back an updated item (best-effort).
                 let parentPath = (remotePath as NSString).deletingLastPathComponent
@@ -136,6 +150,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 if let localURL = url {
                     // File upload.
                     try client.uploadFile(from: localURL, to: remotePath)
+                    NSLog("BdpanFinderExt createItem uploaded \(remotePath)")
                     // Re-fetch from server to obtain real fs_id and server mtime.
                     let entries = try client.listFiles(at: parentPath)
                     if let entry = entries.first(where: { $0.path == remotePath }) {
@@ -155,6 +170,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                         return
                     }
                     try client.createDirectory(at: remotePath)
+                    NSLog("BdpanFinderExt createItem created dir \(remotePath)")
                     let isoNow = ISO8601DateFormatter().string(from: Date())
                     let syntheticEntry = BdpanFileInfo(
                         fsId: 0,
@@ -290,7 +306,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         for containerItemIdentifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest
     ) throws -> NSFileProviderEnumerator {
-        bdpanDebugLog("enumerator called for: \(containerItemIdentifier.rawValue)")
+        NSLog("BdpanFinderExt enumerator called for: \(containerItemIdentifier.rawValue)")
         if containerItemIdentifier == .workingSet {
             return WorkingSetEnumerator(client: client)
         }

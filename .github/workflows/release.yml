@@ -53,15 +53,25 @@ jobs:
           APPEX="$APP/Contents/PlugIns/BdpanFinderExt.appex"
           IDENTITY="Developer ID Application: Jian Shuo Wang (97XBW2A43H)"
 
+          # Verify the bdpan CLI was copied into Resources before signing.
+          test -x "$APP/Contents/Resources/bdpan"
+          test -x "$APPEX/Contents/Resources/bdpan"
+
+          # Sign the bundled executable first (inner → outer).
+          codesign --force --sign "$IDENTITY" --options runtime --timestamp \
+            "$APP/Contents/Resources/bdpan"
+          codesign --force --sign "$IDENTITY" --options runtime --timestamp \
+            "$APPEX/Contents/Resources/bdpan"
+
           # Sign inner → outer
           codesign --force --sign "$IDENTITY" \
             --entitlements BdpanFinderExt/BdpanFinderExt-Release.entitlements \
-            --options runtime \
+            --options runtime --timestamp \
             "$APPEX"
 
           codesign --force --sign "$IDENTITY" \
             --entitlements BdpanFinder/BdpanFinder.entitlements \
-            --options runtime \
+            --options runtime --timestamp \
             "$APP"
 
           cp -r "$APP" build/BdpanFinder.app

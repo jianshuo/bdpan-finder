@@ -1,4 +1,9 @@
 *.xcuserstate
 
+# Local tooling / cache directories
+.claude/
+.gstack/
+.wrangler/
+
 dist/
 docs/*.dmg

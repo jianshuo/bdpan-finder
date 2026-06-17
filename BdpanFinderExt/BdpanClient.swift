@@ -44,7 +44,7 @@ final class BdpanClient {
     /// Path to the bdpan binary. Resolves to the copy bundled inside this
     /// extension/app bundle so a sandboxed, notarized build can exec it with no
     /// temporary-exception entitlement. Override in unit tests.
-    var bdpanPath: String = BdpanClient.bundledBdpanPath()
+    var bdpanPath: String = BdpanClient.bundledBdpanPath() ?? ""
 
     /// Bundle identifier of the File Provider extension.
     static let extensionBundleIdentifier = "com.wangjianshuo.BdpanFinder.Extension"
@@ -79,13 +79,13 @@ final class BdpanClient {
         return bdpanConfigDir() + "/config.json"
     }
 
-    /// Locate the bundled `bdpan` executable. Falls back to the legacy
-    /// ~/.local/bin path for dev checkouts that haven't vendored it yet.
-    static func bundledBdpanPath() -> String {
-        if let url = Bundle(for: BdpanClient.self).url(forResource: "bdpan", withExtension: nil) {
-            return url.path
-        }
-        return realHome() + "/.local/bin/bdpan"
+    /// Locate the bundled `bdpan` executable.
+    ///
+    /// Shipped builds must embed the binary in the bundle's Resources. There is
+    /// no fallback to a developer-machine path, because that path does not exist
+    /// on users' Macs and would mask packaging bugs.
+    static func bundledBdpanPath() -> String? {
+        Bundle(for: BdpanClient.self).url(forResource: "bdpan", withExtension: nil)?.path
     }
 
     // MARK: - Public API
@@ -205,8 +205,10 @@ final class BdpanClient {
     ///   - `BdpanError.processFailure` – any other non-zero exit code.
     @discardableResult
     func runBdpan(_ arguments: [String]) throws -> String {
-        guard FileManager.default.isExecutableFile(atPath: bdpanPath) else {
-            throw BdpanError.binaryNotFound(path: bdpanPath)
+        guard !bdpanPath.isEmpty,
+              FileManager.default.isExecutableFile(atPath: bdpanPath) else {
+            let reportedPath = bdpanPath.isEmpty ? "<bundled bdpan missing>" : bdpanPath
+            throw BdpanError.binaryNotFound(path: reportedPath)
         }
 
         let process = Process()
@@ -219,7 +221,8 @@ final class BdpanClient {
         // Pin bdpan's config (OAuth token + .token_key) to the shared container
         // directory. --config-path is a global flag, valid before the subcommand;
         // bdpan resolves .token_key next to it.
-        let fullArgs = ["--config-path", BdpanClient.configPath()] + arguments
+        // --no-check-update prevents update-check output from polluting stdout/stderr.
+        let fullArgs = ["--no-check-update", "--config-path", BdpanClient.configPath()] + arguments
         process.arguments = fullArgs
 
         // Point HOME at the shared container so anything bdpan writes relative to
@@ -279,13 +282,19 @@ final class BdpanClient {
         // Map well-known error strings regardless of exit code, because some
         // bdpan versions exit 0 even when authentication has failed.
         let combined = stdout + stderr
-        if combined.contains("Token expired") {
+        if combined.contains("Token expired")
+            || combined.contains("获取 Token 失败")
+            || combined.contains("请先执行 bdpan login")
+            || combined.contains("请先执行 login") {
             throw BdpanError.tokenExpired
         }
-        if combined.contains("File not found") {
+        if combined.contains("File not found")
+            || combined.contains("路径不存在")
+            || combined.contains("文件不存在") {
             throw BdpanError.pathNotFound
         }
-        if combined.contains("Path not allowed") {
+        if combined.contains("Path not allowed")
+            || combined.contains("路径超出授权目录范围") {
             throw BdpanError.pathNotAllowed
         }
 
