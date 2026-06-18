@@ -12,7 +12,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Import Developer ID Certificate
         env:
@@ -74,7 +74,8 @@ jobs:
             --options runtime --timestamp \
             "$APP"
 
-          cp -r "$APP" build/BdpanFinder.app
+          # Rename to 百度网盘.app so fileproviderd uses that as the Finder sidebar label.
+          cp -r "$APP" "build/百度网盘.app"
 
       - name: Notarize
         env:
@@ -84,15 +85,15 @@ jobs:
         run: |
           mkdir -p ~/private_keys
           echo "$APPLE_API_KEY_CONTENT" > ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
-          ditto -c -k --keepParent build/BdpanFinder.app build/BdpanFinder-notarize.zip
-          xcrun notarytool submit build/BdpanFinder-notarize.zip \
+          ditto -c -k --keepParent "build/百度网盘.app" build/百度网盘-notarize.zip
+          xcrun notarytool submit build/百度网盘-notarize.zip \
             --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
             --key-id "$APPLE_API_KEY_ID" \
             --issuer "$APPLE_API_ISSUER" \
             --wait
 
       - name: Staple
-        run: xcrun stapler staple build/BdpanFinder.app
+        run: xcrun stapler staple "build/百度网盘.app"
 
       - name: Package and Release
         env:
@@ -100,14 +101,14 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           mkdir -p build/dmg-staging
-          cp -r build/BdpanFinder.app build/dmg-staging/BdpanFinder.app
+          cp -r "build/百度网盘.app" "build/dmg-staging/百度网盘.app"
           ln -s /Applications build/dmg-staging/Applications
           hdiutil create \
-            -volname "BdpanFinder ${TAG}" \
+            -volname "百度网盘 ${TAG}" \
             -srcfolder build/dmg-staging \
             -ov -format UDZO \
-            "build/BdpanFinder-${TAG}.dmg"
+            "build/百度网盘-${TAG}.dmg"
           gh release create "$TAG" \
-            "build/BdpanFinder-${TAG}.dmg" \
+            "build/百度网盘-${TAG}.dmg" \
             --title "$TAG" \
             --generate-notes
