@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Domain Configuration
 
     private static let domainIdentifier = NSFileProviderDomainIdentifier(
-        rawValue: "com.wangjianshuo.BdpanFinder"
+        rawValue: "com.wangjianshuo.百度网盘"
     )
     private static let domainDisplayName = "百度网盘"
 
@@ -36,15 +36,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.registeredDomain = domain
         setupStatusMenu()
 
-        // Remove any existing domain first to clear stale local state, then re-add.
-        // This ensures the File Provider's pending-operation queue is wiped on every
-        // launch, preventing corrupted local state from replaying bad createItem calls.
-        NSFileProviderManager.remove(domain) { _ in
-            NSFileProviderManager.add(domain) { error in
-                if let error = error {
-                    NSLog("BdpanFinder: failed to add domain: \(error)")
-                } else {
-                    NSLog("BdpanFinder: domain added successfully")
+        // Remove ALL registered domains before re-adding ours.
+        // This handles identifier migrations: if a previous build registered a
+        // custom-identifier domain (e.g. "com.wangjianshuo.BdpanFinder"), simply
+        // removing the current domain wouldn't touch it — old entries would
+        // persist in Finder's sidebar with the wrong label.
+        NSFileProviderManager.getDomainsWithCompletionHandler { existing, _ in
+            let group = DispatchGroup()
+            for old in existing ?? [] {
+                group.enter()
+                NSFileProviderManager.remove(old) { _ in group.leave() }
+            }
+            group.notify(queue: .global()) {
+                NSFileProviderManager.add(domain) { error in
+                    if let error = error {
+                        NSLog("BdpanFinder: failed to add domain: \(error)")
+                    } else {
+                        NSLog("BdpanFinder: domain added successfully")
+                    }
                 }
             }
         }
